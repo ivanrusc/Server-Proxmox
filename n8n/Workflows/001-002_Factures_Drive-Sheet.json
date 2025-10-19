@@ -1,0 +1,417 @@
+{
+  "name": "001-002_Drive-Sheet",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "triggerOn": "specificFolder",
+        "folderToWatch": {
+          "__rl": true,
+          "value": "1vRvSJ_kdUQ7neOO0sXV5QoXsA1L2lM6g",
+          "mode": "list",
+          "cachedResultName": "UP-Factures",
+          "cachedResultUrl": "https://drive.google.com/drive/folders/1vRvSJ_kdUQ7neOO0sXV5QoXsA1L2lM6g"
+        },
+        "event": "fileCreated",
+        "options": {
+          "fileType": "all"
+        }
+      },
+      "type": "n8n-nodes-base.googleDriveTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "179d12ba-b357-4685-9124-dc0b2857e6ae",
+      "name": "pujar-arxiu",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "YN4G5ZV1cdhCaS26",
+          "name": "01201_CanMargarida"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {
+          "reset": true
+        }
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        208,
+        0
+      ],
+      "id": "40ad36ed-c86f-416b-9b69-304519ce6477",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "operation": "download",
+        "fileId": {
+          "__rl": true,
+          "value": "={{ $json.id }}",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        448,
+        16
+      ],
+      "id": "d1cde9d6-49a6-417f-af17-7452b82adf8d",
+      "name": "Download file",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "YN4G5ZV1cdhCaS26",
+          "name": "01201_CanMargarida"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "binaryToPropery",
+        "destinationKey": "base64",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [
+        656,
+        16
+      ],
+      "id": "edca6218-92c6-4ea5-9e43-895bd421a2d5",
+      "name": "Extract from File"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "key",
+              "value": "AIzaSyCnTSl9GTvOpwrtWWvbbfPlKrT6jFJC0dM"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"contents\": [\n    {\n      \"role\": \"user\",\n      \"parts\": [\n        {\n          \"inlineData\": {\n            \"mimeType\": \"{{ $('Download file').item.json.mimeType }}\",\n            \"data\": \"{{ $('Extract from File').item.json.base64 }}\"\n          }\n        },\n        {\n          \"text\": \"Mi empresa es Lambda, que es el receptor de la factura.\\n\\nA partir del documento de factura proporcionado, extrae los siguientes campos y devuelve un objeto JSON con los campos en el orden exacto listado a continuación:\\n\\n⸻\\n\\n• Fecha de la Factura: La fecha en que se emitió la factura. Formato estrictamente así: DD/MM/AAAA (p. ej. 15/11/2025).\\n• Categoría: Clasifica el gasto en una de las siguientes categorías predefinidas:\\n    • Costes de IT y Software\\n    • Telefonía y Comunicaciones\\n    • Material de Oficina\\n    • Viajes y Alojamiento\\n    • Marketing y Publicidad\\n    • Honorarios por Servicios\\n    • Suscripciones y Membresías\\n    • Formación y Educación\\n    • Suministros y Alquileres\\n    • Servicios Profesionales\\n• Emisor: El nombre de la empresa o persona que emitió la factura. Esto no es Lambda, sino la entidad que figura claramente en la factura como emisor.\\n• Descripción: Breve explicación del producto o servicio prestado.\\n• Importe (sin IVA): El precio neto antes de IVA.\\n    • Elimina cualquier símbolo o texto de moneda (€, $, EUR, USD, etc.).\\n    • Usa coma como separador decimal, no punto (p. ej. 10.90 → 10,90).\\n    • Ejemplo: \\\"1200,00\\\"\\n• IVA %: El valor numérico del tipo de IVA, usando coma como separador decimal y sin el símbolo de porcentaje.\\n    • Ejemplo: \\\"21,0\\\" (no \\\"21.0\\\" ni \\\"21,0%\\\")\\n    • Si no se aplica IVA, escribe \\\"0,0\\\"\\n• Total: El importe total incluido el IVA.\\n    • Elimina cualquier símbolo de moneda.\\n    • Formato con coma como separador decimal.\\n    • Ejemplo: \\\"1500,00\\\"\\n• Moneda: Extrae la unidad monetaria de forma separada como una abreviatura en mayúsculas (p. ej. \\\"EUR\\\", \\\"USD\\\").\\n• Notas: Cualquier anotación relevante para contabilidad o aclaraciones. Si no aplica, usa \\\"N/A\\\".\\n\\n⸻\\n\\n✅ Asegúrate de:\\n• Formato consistente en todos los campos.\\n• Ningún campo vacío (usa \\\"N/A\\\" donde no haya datos).\\n• Cumplimiento estricto del orden y estructura indicados.\"\n        }\n      ]\n    }\n  ],\n  \"generationConfig\": {\n    \"temperature\": 0,\n    \"topK\": 1,\n    \"topP\": 0.95,\n    \"maxOutputTokens\": 1024,\n    \"responseMimeType\": \"application/json\"\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        848,
+        16
+      ],
+      "id": "09896019-8cc8-4677-934d-bb472566ab5c",
+      "name": "Gemini"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "f326d94a-e150-438c-8e4c-142ebdb288bb",
+              "name": "JsonString",
+              "value": "={{ JSON.parse ($json.candidates[0].content.parts[0].text)}}",
+              "type": "array"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1056,
+        16
+      ],
+      "id": "c0d1a33e-be1e-49a6-bcf6-70b786589a29",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "amount": 15
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1472,
+        16
+      ],
+      "id": "70d40cbc-5926-4d6f-af16-f7483b0a5b9a",
+      "name": "Wait",
+      "webhookId": "797c3c49-5791-4912-a12d-0e157c7f66ac"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1ufAGVAt1ALK088TrAUdb3DEr8WrnsDsnUp2h18pLB7M",
+          "mode": "list",
+          "cachedResultName": "00001-FACTURES",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1ufAGVAt1ALK088TrAUdb3DEr8WrnsDsnUp2h18pLB7M/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Full 1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1ufAGVAt1ALK088TrAUdb3DEr8WrnsDsnUp2h18pLB7M/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Data": "={{ $json.JsonString[0]['Fecha de la Factura'] }}",
+            "Categoria": "={{ $json.JsonString[0]['Categoría'] }}",
+            "Emisor": "={{ $json.JsonString[0].Emisor }}",
+            "Descripcion": "={{ $json.JsonString[0]['Descripción'] }}",
+            "Importe": "={{ $json.JsonString[0]['Importe (sin IVA)'] }}",
+            "IVA": "={{ $json.JsonString[0]['IVA %'] }}",
+            "TOTAL": "={{ $json.JsonString[0].Total }}",
+            "Column 8": "={{ $json.JsonString[0].Moneda }}",
+            "Column 10": "={{ $json.JsonString[0].Notas }}",
+            "URL": "={{ $('pujar-arxiu').item.json.webViewLink }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Data",
+              "displayName": "Data",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Categoria",
+              "displayName": "Categoria",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Emisor",
+              "displayName": "Emisor",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Descripcion",
+              "displayName": "Descripcion",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Importe",
+              "displayName": "Importe",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "IVA",
+              "displayName": "IVA",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "TOTAL",
+              "displayName": "TOTAL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Column 8",
+              "displayName": "Column 8",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "URL",
+              "displayName": "URL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Column 10",
+              "displayName": "Column 10",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1264,
+        16
+      ],
+      "id": "043992b4-0810-45e1-a0ad-e0d4e8c34632",
+      "name": "Append row in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "4ayQxB5pli51GNY8",
+          "name": "01201_CanMargarida"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "pujar-arxiu": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Download file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download file": {
+      "main": [
+        [
+          {
+            "node": "Extract from File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract from File": {
+      "main": [
+        [
+          {
+            "node": "Gemini",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append row in sheet": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "d0932726-07b4-47ba-8cba-9976539f29e8",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "3e7d5249078459df8267619a6012947dd124e9f72d7b89e76b6daede751351e6"
+  },
+  "id": "JxAsjuqRJHGXRiJ2",
+  "tags": []
+}
